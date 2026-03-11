@@ -1,6 +1,4 @@
-"""Tests for phs_km_curve() and deprecated km_curve() – mirrors test-km.R."""
-
-import warnings
+"""Tests for phs_km_curve() – mirrors test-km.R."""
 
 import numpy as np
 import pandas as pd
@@ -93,44 +91,3 @@ def test_phs_km_curve_missing_column_raises():
     with pytest.raises(ValueError):
         phs_km_curve(TEST_DATA, phs="nonexistent_col")
 
-
-# ── deprecated km_curve ───────────────────────────────────────────────────────
-
-
-def test_km_curve_deprecation_warning():
-    from pyhazrd.deprecated import km_curve
-
-    with pytest.warns(DeprecationWarning):
-        km_curve(TEST_DATA)
-
-
-def test_km_curve_returns_dataframe():
-    from pyhazrd.deprecated import km_curve
-
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", DeprecationWarning)
-        result = km_curve(TEST_DATA)
-    assert isinstance(result, pd.DataFrame)
-    for col in ("time", "estimate", "conf.low", "conf.high", "stratum"):
-        assert col in result.columns
-
-
-def test_km_curve_scale_warns():
-    from pyhazrd.deprecated import km_curve
-
-    with pytest.warns(DeprecationWarning, match="scale"):
-        km_curve(TEST_DATA, scale=True)
-
-
-def test_km_curve_inverse_warns():
-    from pyhazrd.deprecated import km_curve
-
-    with pytest.warns(DeprecationWarning, match="inverse"):
-        km_curve(TEST_DATA, inverse=True)
-
-
-def test_km_curve_interval_warns():
-    from pyhazrd.deprecated import km_curve
-
-    with pytest.warns(DeprecationWarning, match="interval"):
-        km_curve(TEST_DATA, interval=[0.2, 0.8])
