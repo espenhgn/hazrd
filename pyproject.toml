@@ -1,0 +1,45 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pyhazrd"
+version = "0.1.0"
+description = "Polygenic Hazard Score evaluation and visualization tools"
+readme = "README.md"
+license = { file = "LICENSE" }
+authors = [
+    { name = "Andrew Morris", email = "andrewmorris@mailbox.org" }
+]
+keywords = ["survival analysis", "polygenic hazard score", "cox model", "genetics"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+    "Intended Audience :: Science/Research",
+]
+requires-python = ">=3.9"
+dependencies = [
+    "lifelines>=0.27.0",
+    "numpy>=1.21.0",
+    "pandas>=1.3.0",
+    "scipy>=1.7.0",
+    "matplotlib>=3.4.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/amorris28/hazrd"
+"Bug Tracker" = "https://github.com/amorris28/hazrd/issues"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["pyhazrd*"]
+
+[tool.setuptools.package-data]
+pyhazrd = ["data/*.csv"]
