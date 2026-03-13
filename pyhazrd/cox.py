@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import numpy as np
 import pandas as pd
+from lifelines import CoxPHFitter
+from scipy.stats import norm
 
 # Numerical floor to avoid log(0) when computing log-log CIs
 _EPS = 1e-10
@@ -28,11 +30,8 @@ def phs_cox_curve(
     percentiles. Unlike :func:`phs_km_curve`, these are smooth model-based
     predictions rather than empirical group estimates.
 
-    Uses :class:`sksurv.linear_model.CoxPHSurvivalAnalysis` for fitting and
-    prediction. When ``conf_int=True``, a second fit via
-    :class:`lifelines.CoxPHFitter` is performed to obtain the coefficient
-    variance matrix (scikit-survival does not expose this directly); both fits
-    converge to the same estimate.
+    Uses :class:`lifelines.CoxPHFitter` for fitting, prediction, and
+    coefficient variance (for Wald confidence intervals on the log-log scale).
 
     Parameters
     ----------
@@ -70,9 +69,6 @@ def phs_cox_curve(
         ``time``, ``estimate``, ``conf.low``, ``conf.high``, ``percentile``,
         and ``percentile_value``.
     """
-    from scipy.stats import norm
-    from sksurv.linear_model import CoxPHSurvivalAnalysis
-
     if percentiles is None:
         percentiles = [0.01, 0.05, 0.20, 0.50, 0.80, 0.95, 0.99]
 
@@ -92,33 +88,18 @@ def phs_cox_curve(
 
     # ── resolve column vectors ────────────────────────────────────────────────
     phs_vals = data[phs].to_numpy(dtype=float)
-    time_vals = data[time].to_numpy(dtype=float)
-    event_vals = data[event].to_numpy(dtype=bool)
 
-    # ── fit Cox model via scikit-survival ─────────────────────────────────────
-    y = np.array(
-        list(zip(event_vals, time_vals)),
-        dtype=[("event", bool), ("time", float)],
+    # ── fit Cox model via lifelines ───────────────────────────────────────────
+    cxph = CoxPHFitter()
+    cxph.fit(
+        data[[phs, time, event]],
+        duration_col=time,
+        event_col=event,
     )
-    X = phs_vals.reshape(-1, 1)
-
-    cox = CoxPHSurvivalAnalysis(ties="breslow")
-    cox.fit(X, y)
 
     # ── coefficient SE for Wald CIs ───────────────────────────────────────────
-    # scikit-survival does not expose the covariance matrix; a second fit via
-    # lifelines (which shares the same partial-likelihood maximisation) is used
-    # solely to obtain var(beta) for the log-log CI transform.
     beta_se: float | None = None
     if conf_int:
-        from lifelines import CoxPHFitter
-
-        cxph = CoxPHFitter()
-        cxph.fit(
-            data[[phs, time, event]],
-            duration_col=time,
-            event_col=event,
-        )
         beta_se = float(np.sqrt(cxph.variance_matrix_.values[0, 0]))
 
     # ── PHS values at requested percentiles ───────────────────────────────────
@@ -130,18 +111,19 @@ def phs_cox_curve(
     phs_at_pct = np.quantile(ref_phs, percentiles_arr)
     pct_labels = [f"P{round(p * 100)}" for p in percentiles_arr]
 
-    # ── predict survival curves via scikit-survival ───────────────────────────
-    X_new = phs_at_pct.reshape(-1, 1)
-    sf_fns = cox.predict_survival_function(X_new, return_array=False)
+    # ── predict survival curves via lifelines ─────────────────────────────────
+    # predict_survival_function returns a DataFrame: index=times, cols=obs indices
+    df_at_pct = pd.DataFrame({phs: phs_at_pct})
+    sf_df = cxph.predict_survival_function(df_at_pct)
 
     z_crit = norm.ppf(0.975)
+    times = sf_df.index.to_numpy(dtype=float)
 
     out_frames: list[pd.DataFrame] = []
-    for sf_fn, label, pct_val, phs_val in zip(
-        sf_fns, pct_labels, percentiles_arr, phs_at_pct
+    for i, (label, pct_val, phs_val) in enumerate(
+        zip(pct_labels, percentiles_arr, phs_at_pct)
     ):
-        times = sf_fn.x
-        surv = np.clip(sf_fn(times), 0.0, 1.0)
+        surv = np.clip(sf_df.iloc[:, i].to_numpy(dtype=float), 0.0, 1.0)
 
         # Wald CI on log-log scale: log(-log S(t)) +/- z * |x| * se(beta)
         if conf_int and beta_se is not None:
