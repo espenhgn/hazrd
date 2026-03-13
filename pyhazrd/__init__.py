@@ -19,6 +19,7 @@ Example
 
 from pyhazrd.metrics import phs_metrics
 from pyhazrd.km import phs_km_curve
+from pyhazrd.cox import phs_cox_curve
 
 __version__ = "0.1.0"
-__all__ = ["phs_metrics", "phs_km_curve"]
+__all__ = ["phs_metrics", "phs_km_curve", "phs_cox_curve"]
