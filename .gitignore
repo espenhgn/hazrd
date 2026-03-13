@@ -10,3 +10,13 @@ docs
 # R CMD check artifacts
 *.Rcheck/
 ..Rcheck/
+
+# Python package build artifacts
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+pyhazrd_data/
+
